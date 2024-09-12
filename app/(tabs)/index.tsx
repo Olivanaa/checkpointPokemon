@@ -1,90 +1,161 @@
-import { Image, StyleSheet, Platform, ScrollView, TouchableHighlight, View, Text, SafeAreaView, TextInput, Button } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { Image, StyleSheet, ScrollView, View, Text, SafeAreaView, TextInput, Button, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { Pokemon } from '@/api/AxiosComponent';
-import { PokemonType } from '@/models/pokemon.interface';
+import { PokemonType, ImageType } from '@/models/pokemon.interface';
 
 export default function HomeScreen() {
 
   const [pokemons, setPokemons] = useState<PokemonType[]>([])
-  const [nome, setNome] = useState()
+  const [pokemon, setPokemon] = useState<ImageType | null>(null)
+  const [nome, setNome] = useState('')
+  const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(()=>{
-    fetchPokemon()
-  }, [])
+  useEffect(() => {
+    if (!isSearching) {
+      fetchPokemon()
+    }
+  }, [isSearching])
 
   async function fetchPokemon() {
     const response = await Pokemon.getPokemon()
     setPokemons(response)
-    console.log(response);
   }
 
   async function getAPokemon(name: string) {
-    const response = await Pokemon.getAPokemon(name)
-    let list = []
-    list.push(response)
-    setPokemons(list)
+    try {
+      const response = await Pokemon.getAPokemon(name)
+      const pokemon = {
+        name: name,
+        ...response
+    }
+    setPokemon(pokemon)
+    setIsSearching(true)
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('404')) {
+          Alert.alert(
+            'Pokémon não encontrado',
+            `Não foi possível encontrar um Pokémon com o nome "${name}". Verifique o nome e tente novamente.`
+          );
+        } else {
+          Alert.alert(
+            'Erro',
+            'Ocorreu um erro ao buscar o Pokémon. Tente novamente mais tarde.'
+          );
+        }
+      } else {
+        Alert.alert(
+          'Erro',
+          'Ocorreu um erro inesperado. Tente novamente mais tarde.'
+        );
+      }
+      console.log(error);
+    }
   }
+
+  function clearSearch(){
+    setIsSearching(false)
+    setNome('')
+  }
+
   return (
-    
+
     <SafeAreaView style={styles.container}>
-        <View style={styles.searchContainer}>
-          <TextInput 
-            style={styles.textInput}
-            placeholder='Nome '
-            onChangeText={() => setNome(nome)}
-          />
-          <Button title='Buscar' onPress={() => getAPokemon(nome)}/>
-        </View>
-        <Button title='Buscar Posts' onPress={() => fetchPokemon()}/>
-        <ScrollView>
-          { pokemons?.map((pokemon) => {
-            return (
-              
-                <View style={styles.postContainer}>
-                  <Text style={styles.title}>{pokemon.name}</Text>
-                  <Text style={styles.userId}>{pokemon.url}</Text>
-                </View>
-            )
-          }) }
-        </ScrollView>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Nome do Pokemón"
+          value={nome}
+          onChangeText={(text) => setNome(text)}
+        />
+        <Button title="Catch 'Em All" onPress={() => getAPokemon(nome)} />
+      </View>
+      <ScrollView>
+        {isSearching && pokemon ? (
+          <View style={styles.pokemonContainer}>
+            <Text style={styles.pokemonName}>{pokemon.name}</Text>
+            <Image
+              style={styles.pokemonImage}
+              source={{ uri: pokemon?.front_default }}
+            />
+            <Text style={styles.pokemonDetail}>Altura: {pokemon.height / 10} m</Text>
+            <Text style={styles.pokemonDetail}>Peso: {pokemon.weight / 10} kg</Text>
+            <Button title="Voltar à lista" onPress={clearSearch} /> 
+          </View>
+        ) : (
+          pokemons?.map((pokemon) => (
+            <View key={pokemon.name} style={styles.postContainer}>
+              <Text style={styles.pokemonName}>{pokemon.name}</Text>
+            </View>
+          ))
+
+        )}
+      </ScrollView>
     </SafeAreaView>
-    
+
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
-  }, 
+      flex: 1,
+      backgroundColor: '#f0f0f0',
+  },
   searchContainer: {
-    margin: 8,
-    flexDirection: 'row'
+      flexDirection: 'row',
+      margin: 16,
+      alignItems: 'center',
+      justifyContent: 'space-between',
   },
   textInput: {
-    flex: 3
-  },
-  button: {
-    flex: 1
+      flex: 1,
+      padding: 10,
+      backgroundColor: '#fff',
+      borderRadius: 8,
+      marginRight: 10,
+      borderWidth: 1,
+      borderColor: '#ddd',
   },
   postContainer: {
-    borderColor: '#000',
-    borderWidth: 2,
-    borderRadius: 8,
-    padding: 10,
-    margin: 10
+      backgroundColor: '#fff',
+      borderRadius: 8,
+      padding: 16,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      borderWidth: 1,
+      borderColor: '#ddd',
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      shadowOffset: { width: 0, height: 2 },
+      shadowRadius: 4,
+      elevation: 2,
   },
-  title: {
-    textAlign: 'left',
-    fontSize: 18,
-    fontWeight: 'bold'
+  pokemonContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      backgroundColor: '#fff',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#ddd',
   },
-  userId: {
-    textAlign: 'right',
-    color: '#babaca'
-  }
+  pokemonName: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      marginBottom: 12,
+      color: '#4a4a4a',
+      textTransform: 'capitalize',
+  },
+  pokemonImage: {
+      width: 250,
+      height: 250,
+      resizeMode: 'contain',
+  },
+  pokemonDetail: {
+      fontSize: 18,
+      marginBottom: 8,
+      color: '#555',
+  },
 });

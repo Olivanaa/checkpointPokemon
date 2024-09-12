@@ -3,7 +3,9 @@ export interface PokemonType {
     url: string
 }
 
-export interface PokemonsType {
-    name: string,
-    image: string
+export interface ImageType {
+    name?: string,
+    front_default: string,
+    height: number,
+    weight: number
 }
